@@ -25,17 +25,20 @@ import SwiftUI
 
 extension View {
   @ViewBuilder
+  public func `if`<TrueContent: View>(_ condition: Bool, trueTransform: (Self) -> TrueContent) -> some View {
+    self.if(condition, trueTransform: trueTransform, falseTransform: { $0 })
+  }
+
+  @ViewBuilder
   public func `if`<TrueContent: View, FalseContent: View>(
     _ condition: Bool,
     trueTransform: (Self) -> TrueContent,
-    falseTransform: ((Self) -> FalseContent)? = nil
+    falseTransform: (Self) -> FalseContent
   ) -> some View {
     if condition {
       trueTransform(self)
-    } else if let falseTransform = falseTransform {
-      falseTransform(self)
     } else {
-      self
+      falseTransform(self)
     }
   }
 }
