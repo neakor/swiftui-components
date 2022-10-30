@@ -13,11 +13,15 @@ let package = Package(
       targets: ["SwiftUIComponents"]
     ),
   ],
-  dependencies: [],
+  dependencies: [
+    .package(url: "https://github.com/siteline/SwiftUI-Introspect.git", branch: "master"),
+  ],
   targets: [
     .target(
       name: "SwiftUIComponents",
-      dependencies: []
+      dependencies: [
+        .product(name: "Introspect", package: "SwiftUI-Introspect"),
+      ]
     ),
   ]
 )
