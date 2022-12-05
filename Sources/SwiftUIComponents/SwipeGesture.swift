@@ -32,7 +32,7 @@ public enum SwipeDirection: Equatable {
 
 extension View {
   public func onSwipe(handler: @escaping ([SwipeDirection]) -> Void) -> some View {
-    gesture(
+    simultaneousGesture(
       DragGesture(minimumDistance: 0, coordinateSpace: .local)
         .onEnded { value in
           var directions = [SwipeDirection]()
