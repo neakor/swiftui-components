@@ -31,9 +31,9 @@ public enum SwipeDirection: Equatable {
 }
 
 extension View {
-  public func onSwipe(handler: @escaping ([SwipeDirection]) -> Void) -> some View {
+  public func onSwipe(minimumDistance: CGFloat = 10, handler: @escaping ([SwipeDirection]) -> Void) -> some View {
     simultaneousGesture(
-      DragGesture(minimumDistance: 0, coordinateSpace: .local)
+      DragGesture(minimumDistance: minimumDistance, coordinateSpace: .local)
         .onEnded { value in
           var directions = [SwipeDirection]()
           if value.translation.width < 0 {
