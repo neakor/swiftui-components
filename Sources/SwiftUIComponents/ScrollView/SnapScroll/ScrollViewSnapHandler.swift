@@ -73,7 +73,6 @@ public class ScrollViewSnapHandler: NSObject, ObservableObject, UIScrollViewDele
   private let itemSize: CGFloat
   private let thresholdItemScrollDistance: CGFloat
   private let willSnapToItemAtIndex: ((Int) -> Void)?
-  private var scrollViewLeadingOffset: CGPoint?
   private var beginDraggingOffset = CGPoint()
 
   /// Initializer.
@@ -111,9 +110,6 @@ public class ScrollViewSnapHandler: NSObject, ObservableObject, UIScrollViewDele
   open func willSnapToItemAtIndex(_ itemIndex: Int) {}
 
   public final func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-    if scrollViewLeadingOffset == nil {
-      scrollViewLeadingOffset = scrollView.contentOffset
-    }
     beginDraggingOffset = scrollView.contentOffset
   }
 
@@ -124,19 +120,20 @@ public class ScrollViewSnapHandler: NSObject, ObservableObject, UIScrollViewDele
   ) {
     targetContentOffset.pointee = targetSnapContentOffset(
       scrollTargetContentOffset: targetContentOffset.pointee,
-      scrollVelocity: velocity
+      scrollVelocity: velocity,
+      contentInset: scrollView.contentInset.componentValue(in: axis)
     )
   }
 
-  private func targetSnapContentOffset(scrollTargetContentOffset: CGPoint, scrollVelocity: CGPoint) -> CGPoint {
-    guard let scrollViewLeadingOffset = scrollViewLeadingOffset else {
-      return beginDraggingOffset
-    }
-
+  private func targetSnapContentOffset(
+    scrollTargetContentOffset: CGPoint,
+    scrollVelocity: CGPoint,
+    contentInset: CGFloat
+  ) -> CGPoint {
     let targetItemIndex = targetItemIndex(
       scrollTargetContentOffset: scrollTargetContentOffset,
       scrollVelocity: scrollVelocity,
-      scrollViewLeadingOffset: scrollViewLeadingOffset
+      contentInset: contentInset
     )
 
     defer {
@@ -144,27 +141,25 @@ public class ScrollViewSnapHandler: NSObject, ObservableObject, UIScrollViewDele
       delegate?.willSnapToItemAtIndex(targetItemIndex)
     }
 
-    let snapScrollTargetOffset = CGFloat(targetItemIndex) * itemSize + scrollViewLeadingOffset.componentValue(in: axis)
+    let snapScrollTargetOffset = CGFloat(targetItemIndex) * itemSize + contentInset
     return scrollTargetContentOffset.setValue(snapScrollTargetOffset, in: axis)
   }
 
   private func targetItemIndex(
     scrollTargetContentOffset: CGPoint,
     scrollVelocity: CGPoint,
-    scrollViewLeadingOffset: CGPoint
+    contentInset: CGFloat
   ) -> Int {
     // Adjust target content offset to include the leading offset. This reflects where the target is relative to the
     // actual content, with the first content placed at offset 0. In other words, this is the target content offset
     // in the actual content's coordinate space.
-    let adjustedTargetContentOffset = scrollTargetContentOffset.componentValue(in: axis) +
-    abs(scrollViewLeadingOffset.componentValue(in: axis))
+    let adjustedTargetContentOffset = scrollTargetContentOffset.componentValue(in: axis) + abs(contentInset)
 
     switch behavior {
     case .allowMultiItems:
       return Int(((adjustedTargetContentOffset - thresholdItemScrollDistance) / itemSize).rounded(.up))
     case let .singleItem(thresholdSpeed):
-      let adjustedBeginContentOffset = beginDraggingOffset.componentValue(in: axis) +
-      abs(scrollViewLeadingOffset.componentValue(in: axis))
+      let adjustedBeginContentOffset = beginDraggingOffset.componentValue(in: axis) + abs(contentInset)
       let beginItemCount = Int(adjustedBeginContentOffset / itemSize)
 
       let targetScrollDistance = abs(adjustedTargetContentOffset - adjustedBeginContentOffset)
@@ -201,6 +196,17 @@ extension CGPoint {
       return x
     case .y:
       return y
+    }
+  }
+}
+
+extension UIEdgeInsets {
+  fileprivate func componentValue(in axis: ScrollViewSnapHandler.Axis) -> CGFloat {
+    switch axis {
+    case .x:
+      return left
+    case .y:
+      return -top
     }
   }
 }
