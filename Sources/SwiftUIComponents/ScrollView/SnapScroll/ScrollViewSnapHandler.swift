@@ -23,6 +23,12 @@
 import Foundation
 import SwiftUI
 
+/// The delegate protocol of a `ScrollViewSnapHandler`.
+public protocol ScrollViewSnapHandlerDelegate: AnyObject {
+  /// Invoked when the corresponding handler is about to snap scroll to the item at the specified index.
+  func willSnapToItemAtIndex(_ itemIndex: Int)
+}
+
 /// Handler used to perform snap scrolling on a `ScrollView`.
 ///
 /// This handler can only perform snapping of scroll views whose items are all of the same size in the scrolling axis.
@@ -31,6 +37,10 @@ import SwiftUI
 /// within a view or as a property of a view's view model.
 ///
 /// The handler can be configured to perform different types of snapping behavior. Please see `Behavior` for details.
+///
+/// There are two ways get notified of when this handler is about to snap scroll to an item. A closure may be
+/// specified via the initializer, or a delegate can be assigned to this handler. These mechanisms allows the parent
+/// view to update other elements such as a paging indicator when a snap scroll occurs.
 public class ScrollViewSnapHandler: NSObject, ObservableObject, UIScrollViewDelegate {
   /// The axis of the scroll view.
   public enum Axis {
@@ -55,10 +65,14 @@ public class ScrollViewSnapHandler: NSObject, ObservableObject, UIScrollViewDele
     case singleItem(thresholdSpeed: CGFloat)
   }
 
+  /// The delegate of this handler.
+  public weak var delegate: ScrollViewSnapHandlerDelegate?
+
   private let behavior: ConsolidatedBehavior
   private let axis: Axis
   private let itemSize: CGFloat
   private let thresholdItemScrollDistance: CGFloat
+  private let willSnapToItemAtIndex: ((Int) -> Void)?
   private var scrollViewLeadingOffset: CGPoint?
   private var beginDraggingOffset = CGPoint()
 
@@ -70,11 +84,14 @@ public class ScrollViewSnapHandler: NSObject, ObservableObject, UIScrollViewDele
   ///   - itemSize: The size of each item in the scroll view.
   ///   - thresholdItemSizePercentage: The percentage of an item must be scrolled past to initiate snapping to the
   ///   next item.
+  ///   - willSnapToItemAtIndex: A closure invoked when the handler is about to snap scroll to the item at the
+  ///   specified index.
   public init(
     behavior: Behavior,
     axis: Axis,
     itemSize: CGFloat,
-    thresholdItemSizePercentage: CGFloat = 0.5
+    thresholdItemSizePercentage: CGFloat = 0.5,
+    willSnapToItemAtIndex: ((Int) -> Void)? = nil
   ) {
     switch behavior {
     case .allowMultiItems:
@@ -88,7 +105,10 @@ public class ScrollViewSnapHandler: NSObject, ObservableObject, UIScrollViewDele
     self.axis = axis
     self.itemSize = itemSize
     thresholdItemScrollDistance = itemSize * thresholdItemSizePercentage
+    self.willSnapToItemAtIndex = willSnapToItemAtIndex
   }
+
+  open func willSnapToItemAtIndex(_ itemIndex: Int) {}
 
   public final func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
     if scrollViewLeadingOffset == nil {
@@ -113,16 +133,22 @@ public class ScrollViewSnapHandler: NSObject, ObservableObject, UIScrollViewDele
       return beginDraggingOffset
     }
 
-    let targetItemCount = targetItemCount(
+    let targetItemIndex = targetItemIndex(
       scrollTargetContentOffset: scrollTargetContentOffset,
       scrollVelocity: scrollVelocity,
       scrollViewLeadingOffset: scrollViewLeadingOffset
     )
-    let snapScrollTargetOffset = CGFloat(targetItemCount) * itemSize + scrollViewLeadingOffset.componentValue(in: axis)
+
+    defer {
+      willSnapToItemAtIndex?(targetItemIndex)
+      delegate?.willSnapToItemAtIndex(targetItemIndex)
+    }
+
+    let snapScrollTargetOffset = CGFloat(targetItemIndex) * itemSize + scrollViewLeadingOffset.componentValue(in: axis)
     return scrollTargetContentOffset.setValue(snapScrollTargetOffset, in: axis)
   }
 
-  private func targetItemCount(
+  private func targetItemIndex(
     scrollTargetContentOffset: CGPoint,
     scrollVelocity: CGPoint,
     scrollViewLeadingOffset: CGPoint
@@ -147,7 +173,10 @@ public class ScrollViewSnapHandler: NSObject, ObservableObject, UIScrollViewDele
         return beginItemCount
       }
 
-      if adjustedTargetContentOffset > adjustedBeginContentOffset {
+      // Account for scrolling overruns.
+      if adjustedTargetContentOffset == adjustedBeginContentOffset {
+        return beginItemCount
+      } else if adjustedTargetContentOffset > adjustedBeginContentOffset {
         return beginItemCount + 1
       } else {
         return max(beginItemCount - 1, 0)
