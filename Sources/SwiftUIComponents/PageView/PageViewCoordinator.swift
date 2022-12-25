@@ -36,7 +36,11 @@ public class PageViewCoordinator: NSObject {
     willTransitionTo: (([Int]) -> Void)? = nil,
     didTransitionTo: (([Int]) -> Void)? = nil
   ) {
-    self.pageViewControllers = pages.map(UIHostingController.init)
+    self.pageViewControllers = pages.map { page in
+      let viewController = UIHostingController(rootView: page)
+      viewController.view.backgroundColor = UIColor.clear
+      return viewController
+    }
     self.selection = selection
     self.willTransitionTo = willTransitionTo
     self.didTransitionTo = didTransitionTo

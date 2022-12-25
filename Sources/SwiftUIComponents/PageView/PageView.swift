@@ -115,6 +115,7 @@ public struct PageView: UIViewControllerRepresentable {
       navigationOrientation: navigationOrientation.uiKitValue,
       options: options
     )
+    pageViewController.view.backgroundColor = UIColor.clear
 
     // Set data source to allow gesture based navigation.
     pageViewController.dataSource = context.coordinator
