@@ -33,9 +33,13 @@ extension View {
   /// - Important: The handler object must be retained by the parent view. Generally this object can be either created
   /// as a `StateObject` within a view or as a property of a view's view model.
   public func snapScroll(using handler: ScrollViewSnapHandler) -> some View {
-    self.introspectScrollView { scrollView in
-      scrollView.decelerationRate = .fast
-      scrollView.delegate = handler
+    introspectScrollView { scrollView in
+      // Setup snap scroll on the next runloop cycle to avoid flakiness. Without this delay, the setup sometimes is
+      // not performed.
+      DispatchQueue.main.async {
+        scrollView.decelerationRate = .fast
+        scrollView.delegate = handler
+      }
     }
   }
 }
