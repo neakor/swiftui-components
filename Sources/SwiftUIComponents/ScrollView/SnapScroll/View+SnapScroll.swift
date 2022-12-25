@@ -35,7 +35,9 @@ extension View {
   public func snapScroll(using handler: ScrollViewSnapHandler) -> some View {
     introspectScrollView { scrollView in
       // Setup snap scroll on the next runloop cycle to avoid flakiness. Without this delay, the setup sometimes is
-      // not performed.
+      // not performed. This may be due to SwiftUI installing the view into the view hierarchy after the
+      // `introspectScrollView` closure is invoked. This means if the handler is a `StateObject` an incorrect
+      // instance may be assigned.
       DispatchQueue.main.async {
         scrollView.decelerationRate = .fast
         scrollView.delegate = handler
